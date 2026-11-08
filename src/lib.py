@@ -148,8 +148,47 @@ def word(i):
 # ---------------------------------------------------------------- library routines
 
 
-def build_library(player, flashlight):
+MSG_DEFAULTS = {
+    'dark': "It is pitch dark. You can't see a thing.",
+    'talk_thing': "It doesn't talk back.",
+    'ask_thing': "You'd get more out of a wall.",
+    'sit': "There's no time to sit down.",
+    'listen': 'You hear nothing unexpected.',
+    'smell': 'You smell nothing unexpected.',
+    'wait': 'Time passes.',
+    'kiss': 'This is no time for romance.',
+    'xyzzy': 'A hollow voice says: "Fool."',
+    'sing': 'You hum a few bars. Nobody applauds.',
+    'smoke': "You don't smoke.",
+}
+
+
+def add_actions(spec, meta=False, neednoun=False, freeform=False):
+    """Add game-specific verbs: spec maps an action name to its words, e.g. {'SAY': 'say answer'}.
+    The game handles them in its before-routines or in a routine called GameVerb."""
+    for act, words in spec.items():
+        if act not in st.consts:
+            ACTIONS.append(act)
+            st.const(act, len(ACTIONS))
+        for w in words.split():
+            st.word(w, b0=st.consts[act])
+        if meta:
+            META.append(act)
+        if neednoun:
+            NEEDNOUN.append(act)
+        if freeform:
+            FREEFORM.append(act)
+
+
+FREEFORM = []  # actions whose words the game reads itself (no object lookup), like SAY or TYPE
+
+
+def build_library(player, flashlight, msg=None, shoot=None, game_verb=False):
     NOBJ = len(st.objs)
+    MSG = dict(MSG_DEFAULTS, **(msg or {}))
+    shoot = shoot or ["You have nothing to shoot with, which is probably for the best.\n"]
+    if not game_verb:
+        st.routine('GameVerb', (), (), [('rfalse',)])
     st.routine('Data', ('w', 'k'), (), [('if', ('==', 'w', 0), [('ret', 0)]), ('ret', ('lb', 'w', ('+', 6, 'k')))])
     st.routine('IsNoise', ('w',), (), [('ret', ('?', ('==', ('call', 'Data', 'w', 1), 99)))])
     st.routine('PrintWord', ('i',), ('p', 'n', 'j'), [
@@ -261,7 +300,7 @@ def build_library(player, flashlight):
         ('nl',),
         ('if', ('not', ('call', 'Lit')), [
             ('style', 2), 'Darkness', ('style', 0), '\n',
-            "It's as black as a banker's heart in here. You can't see a thing.\n", ('rtrue',)]),
+            MSG['dark'] + '\n', ('rtrue',)]),
         ('style', 2), ('pobj', 'location'), ('style', 0), '\n',
         ('set', 'd', ('prop', 'location', 'DESCRIBE')),
         ('if', 'd', [('do', ('callv', 'd'))], [('ppaddr', ('prop', 'location', 'DESC')), '\n']),
@@ -294,26 +333,15 @@ def build_library(player, flashlight):
         ('do', ('call', 'LookRoom')),
     ])
     st.routine('Pad', ('n',), ('i',), [('for', 'i', 1, 'n', [' '])])
-    st.routine('DrawStatus', (), ('cols', 'm', 'h', 'x'), [
+    # the game supplies StatusRight(cols): it prints the right-hand side of the status line
+    st.routine('DrawStatus', (), ('cols',), [
         ('set', 'cols', ('lb', 0, 0x21)),
         ('if', ('<', 'cols', 20), [('set', 'cols', 20)]),
         ('split', 1), ('window', 1), ('style', 1), ('cursor', 1, 1),
         ('do', ('call', 'Pad', 'cols')),
         ('cursor', 1, 2),
         ('if', ('call', 'Lit'), [('pobj', 'location')], ['Darkness']),
-        ('set', 'm', ('%', ('+', 1420, 'moves'), 1440)),
-        ('set', 'h', ('/', 'm', 60)),
-        ('set', 'x', ('-', 'cols', 9)),
-        ('if', ('>=', 'cols', 44), [('set', 'x', ('-', 'cols', 22)), ('cursor', 1, 'x'), 'Score: ', ('pnum', 'score'),
-                                    ('set', 'x', ('-', 'cols', 9))]),
-        ('cursor', 1, 'x'),
-        ('set', 'x', ('%', 'h', 12)),
-        ('if', ('==', 'x', 0), [('set', 'x', 12)]),
-        ('if', ('<', 'x', 10), [' ']),
-        ('pnum', 'x'), ':',
-        ('if', ('<', ('%', 'm', 60), 10), ['0']),
-        ('pnum', ('%', 'm', 60)),
-        ('if', ('<', 'h', 12), [' AM'], [' PM']),
+        ('do', ('call', 'StatusRight', 'cols')),
         ('style', 0), ('window', 0),
     ])
     st.routine('YesNo', (), ('w',), [
@@ -340,8 +368,9 @@ def build_library(player, flashlight):
             ('for', 'j', 1, 121, [('sb', OLD, 'j', ('lb', TEXT, 'j'))]),
             ('set', 'oldlen', ('lb', TEXT, 1)),
         ]),
+        ('set', 'v', ('call', 'Data', word(0), 0)),
         ('for', 'i', 0, ('-', 'nw', 1), [
-            ('if', ('==', word('i'), 0), [
+            ('if', ('and', ('==', word('i'), 0), *([('!=', 'v', *FREEFORM)] if FREEFORM else [])), [
                 'I don\'t know the word "', ('do', ('call', 'PrintWord', 'i')), '".\n', ('rfalse',)]),
         ]),
         ('set', 'action', 0), ('set', 'noun', 0), ('set', 'second', 0), ('set', 'particle', 0),
@@ -423,6 +452,7 @@ def build_library(player, flashlight):
         ('if', ('and', ('==', 'action', 'TAKE', 'DROP'), ('<', 'n1s', 'nw'),
                 ('==', word('n1s'), W('all'), W('everything'))), [('set', 'noun', -2), ('rtrue',)]),
         # ------------------------------------------ objects
+        *([('if', ('==', 'action', *FREEFORM), [('set', 'particle', 'n1s'), ('rtrue',)])] if FREEFORM else []),
         ('if', ('==', 'action', 'ASK'), [
             ('if', ('==', 'particle', 'P_ABOUT', 'P_FOR'), [
                 ('set', 'n2s', 'n1s'), ('set', 'n2e', 'n1e'), ('set', 'n1e', 'n1s')]),
@@ -526,10 +556,11 @@ def build_library(player, flashlight):
             'You are carrying:\n',
             ('set', 'c', ('child', player)),
             ('while', 'c', [
-                '  ', ('do', ('call', 'PrintA', 'c')),
-                ('if', ('has', 'c', 'WORN'), [' (being worn)']),
-                ('if', ('and', ('has', 'c', 'SWITCHABLE'), ('has', 'c', 'ON')), [' (switched on)']),
-                '\n',
+                ('if', ('hasnt', 'c', 'CONCEALED'), [
+                    '  ', ('do', ('call', 'PrintA', 'c')),
+                    ('if', ('has', 'c', 'WORN'), [' (being worn)']),
+                    ('if', ('and', ('has', 'c', 'SWITCHABLE'), ('has', 'c', 'ON')), [' (switched on)']),
+                    '\n']),
                 ('set', 'c', ('sibling', 'c')),
             ]),
         ]),
@@ -572,17 +603,15 @@ def build_library(player, flashlight):
             ('do', ('call', 'CThe', 'second')), ' glances at it and shrugs.\n',
         ]),
         ('TALK', [
-            ('if', ('hasnt', 'noun', 'PERSON'), fail("You've been alone too long, Sam. It doesn't talk back.")),
+            ('if', ('hasnt', 'noun', 'PERSON'), fail(MSG['talk_thing'])),
             ('do', ('call', 'CThe', 'noun')), ' has nothing to say to you right now.\n',
         ]),
         ('ASK', [
-            ('if', ('hasnt', 'noun', 'PERSON'), fail("You'd get more out of a lamppost.")),
+            ('if', ('hasnt', 'noun', 'PERSON'), fail(MSG['ask_thing'])),
             ('do', ('call', 'CThe', 'noun')), ' shrugs.\n',
         ]),
         ('SHOOT', [
-            ('if', ('notin', 'revolver', player), fail("You'd need a gun in your hand for that.")),
-            ('if', ('==', 'loaded', 0), fail('Click. The revolver is empty. You forgot to load it, genius.')),
-            "You've only got six bullets. Save them for something that deserves it.\n",
+            *shoot,
         ]),
         ('ATTACK', [
             ('if', ('has', 'noun', 'PERSON'), fail("Violence is the last refuge of the private eye, and you're not there yet.")),
@@ -619,10 +648,10 @@ def build_library(player, flashlight):
         ('CALL', ["There's no telephone here.\n"]),
         ('WAKE', ["You're wide awake. Unfortunately.\n"]),
         (('RING', 'PUSH', 'PULL'), ['Nothing happens.\n']),
-        ('SIT', ["There's no time to sit down. Eddie doesn't have time.\n"]),
-        ('LISTEN', ['Rain. Always the rain.\n']),
-        ('SMELL', ['Wet city: tar, cigarette smoke and the sea.\n']),
-        ('WAIT', ["Time passes. The rain doesn't.\n"]),
+        ('SIT', [MSG['sit'] + '\n']),
+        ('LISTEN', [MSG['listen'] + '\n']),
+        ('SMELL', [MSG['smell'] + '\n']),
+        ('WAIT', [MSG['wait'] + '\n']),
         ('SCORE', ['You have scored ', ('pnum', 'score'), ' out of a possible 100, in ', ('pnum', 'moves'), ' turns.\n']),
         ('SAVE', [
             ('set', 'r', ('save',)),
@@ -654,16 +683,16 @@ def build_library(player, flashlight):
         ('CLIMB', ["There's nothing here worth climbing.\n"]),
         ('ENTER', ["You can't get into that.\n"]),
         ('PLAY', ["You've got no ear for it.\n"]),
-        ('KISS', ['This is no time for romance, Sam.\n']),
+        ('KISS', [MSG['kiss'] + '\n']),
         ('JUMP', ['You jump on the spot. Your knees file a complaint.\n']),
         ('SLEEP', ['You can sleep when you\'re dead. At this rate, that might be soon.\n']),
-        ('XYZZY', ["A hollow voice says: 'Wrong genre, gumshoe.'\n"]),
-        ('SING', ["You hum a few bars of 'Stormy Weather'. The rain seems to agree with every word.\n"]),
+        ('XYZZY', [MSG['xyzzy'] + '\n']),
+        ('SING', [MSG['sing'] + '\n']),
         ('THINK', ['You think hard. Your head hurts. Maybe try HINT.\n']),
         ('KNOCK', ['Nobody answers.\n']),
         ('USE', ["You'll need to be more specific. Try a verb like OPEN, UNLOCK, SHOOT, CALL or TURN ON.\n"]),
         ('HIDE', ['There\'s nowhere to hide that a professional wouldn\'t look.\n']),
         ('PET', ["That's not the kind of thing you pet.\n"]),
-        ('SMOKE', ['You quit in 1946. Mostly.\n']),
+        ('SMOKE', [MSG['smoke'] + '\n']),
         (('YES', 'NO'), ['That was a rhetorical question.\n']),
-    ], ["You can't do that here.\n"])])
+    ], [('if', ('call', 'GameVerb'), [('rtrue',)]), "You can't do that here.\n"])])

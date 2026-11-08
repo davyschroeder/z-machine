@@ -1,0 +1,82 @@
+# Spoilers! The full route to the best ending (100 points) of Perihelion. Lines starting with # are skipped.
+take slate
+n
+x manifest
+open locker
+wear jumpsuit
+take magboots
+wear magboots
+open cabinet
+take cell
+e
+s
+read wall
+n
+e
+put cell in bramble
+talk to bramble
+w
+n
+x murals
+w
+take lexicon
+read lexicon
+read history
+read before
+e
+n
+read journal
+type 2219
+take shard
+s
+e
+x altar
+talk to seraphine
+say ulan ashar
+w
+s
+u
+w
+look through telescope
+e
+s
+x console
+d
+turn on slate
+s
+x shen
+take shard
+play recorder
+take regulator
+n
+u
+n
+e
+take suit
+wear suit
+w
+s
+s
+put regulator in housing
+n
+n
+n
+put shards in core
+ask cantor about vael
+codex
+s
+e
+e
+x tether
+e
+x door
+say miren
+e
+listen
+accept gift
+w
+w
+w
+w
+n
+set course for haven

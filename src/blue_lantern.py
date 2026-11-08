@@ -1073,7 +1073,39 @@ st.routine('Main', (), ('u', 'r'), [
     ]),
 ])
 
-build_library(player, flashlight)
+st.routine('StatusRight', ('cols',), ('m', 'h', 'x'), [
+    ('set', 'm', ('%', ('+', 1420, 'moves'), 1440)),
+    ('set', 'h', ('/', 'm', 60)),
+    ('set', 'x', ('-', 'cols', 9)),
+    ('if', ('>=', 'cols', 44), [('set', 'x', ('-', 'cols', 22)), ('cursor', 1, 'x'), 'Score: ', ('pnum', 'score'),
+                                ('set', 'x', ('-', 'cols', 9))]),
+    ('cursor', 1, 'x'),
+    ('set', 'x', ('%', 'h', 12)),
+    ('if', ('==', 'x', 0), [('set', 'x', 12)]),
+    ('if', ('<', 'x', 10), [' ']),
+    ('pnum', 'x'), ':',
+    ('if', ('<', ('%', 'm', 60), 10), ['0']),
+    ('pnum', ('%', 'm', 60)),
+    ('if', ('<', 'h', 12), [' AM'], [' PM']),
+])
+
+build_library(player, flashlight, msg={
+    'dark': "It's as black as a banker's heart in here. You can't see a thing.",
+    'talk_thing': "You've been alone too long, Sam. It doesn't talk back.",
+    'ask_thing': "You'd get more out of a lamppost.",
+    'sit': "There's no time to sit down. Eddie doesn't have time.",
+    'listen': 'Rain. Always the rain.',
+    'smell': 'Wet city: tar, cigarette smoke and the sea.',
+    'wait': "Time passes. The rain doesn't.",
+    'kiss': 'This is no time for romance, Sam.',
+    'xyzzy': "A hollow voice says: 'Wrong genre, gumshoe.'",
+    'sing': "You hum a few bars of 'Stormy Weather'. The rain seems to agree with every word.",
+    'smoke': 'You quit in 1946. Mostly.',
+}, shoot=[
+    ('if', ('notin', revolver, player), ['You\'d need a gun in your hand for that.\n', ('rfalse',)]),
+    ('if', ('==', 'loaded', 0), ['Click. The revolver is empty. You forgot to load it, genius.\n', ('rfalse',)]),
+    "You've only got six bullets. Save them for something that deserves it.\n",
+])
 
 # addresses of the buffers, so Main can use them through globals
 from lib import TEXT, PARSE
