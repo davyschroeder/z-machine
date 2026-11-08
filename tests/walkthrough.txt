@@ -1,0 +1,39 @@
+# Spoilers! The full route to the best ending (100 points). Lines starting with # are skipped.
+x locket
+open drawer
+take all
+open cabinet
+take box
+load revolver
+d
+e
+talk to gus
+show locket to moose
+n
+read mirror
+x vanity
+read letter
+s
+w
+w
+ring bell
+give money to clerk
+u
+e
+unlock piano with key
+take ledger
+shoot rico
+take switchblade
+w
+d
+e
+s
+call police
+e
+show pass to silas
+e
+take knife
+turn on flashlight
+n
+cut ropes with knife
+wait
